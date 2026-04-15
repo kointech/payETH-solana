@@ -1,0 +1,23 @@
+use anchor_lang::prelude::error_code;
+
+#[error_code]
+pub enum OFTError {
+    /// Caller is neither the admin nor an enabled developer.
+    Unauthorized,
+    /// The LayerZero sender does not match the registered peer.
+    InvalidSender,
+    /// The mint decimals are inconsistent with shared_decimals.
+    InvalidDecimals,
+    /// Received amount is below the caller's minimum acceptable amount.
+    SlippageExceeded,
+    /// The destination token account does not match the message recipient.
+    InvalidTokenDest,
+    /// A rate limit was exceeded.
+    RateLimitExceeded,
+    /// A fee parameter is out of range.
+    InvalidFee,
+    /// The mint authority is not the OFT store or an approved multisig.
+    InvalidMintAuthority,
+    /// All sends and receives are paused.
+    Paused,
+}

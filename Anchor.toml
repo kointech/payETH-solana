@@ -1,0 +1,28 @@
+[toolchain]
+anchor_version = "0.31.1"
+
+[features]
+seeds      = false
+resolution = false
+skip-lint  = false
+
+[programs.localnet]
+paye-oft = "9UovNrJD8pQyBLheeHNayuG1wJSEAoxkmM14vw5gcsTT"
+
+[programs.devnet]
+# Replace with the actual program ID after `anchor keys sync -p paye-oft`
+paye-oft = "9UovNrJD8pQyBLheeHNayuG1wJSEAoxkmM14vw5gcsTT"
+
+[programs.mainnet]
+# Replace with the mainnet-deployed program ID after `anchor keys sync`
+paye-oft = "9UovNrJD8pQyBLheeHNayuG1wJSEAoxkmM14vw5gcsTT"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "Localnet"
+wallet  = "~/.config/solana/id.json"
+
+[scripts]
+test = "npx jest app/tests"

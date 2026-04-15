@@ -1,0 +1,9 @@
+.env
+deployments/
+target/
+.anchor/
+node_modules/
+dist/
+Cargo.lock
+*.so
+*.d
