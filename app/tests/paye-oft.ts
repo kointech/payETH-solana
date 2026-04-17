@@ -27,6 +27,7 @@ import {
   createAssociatedTokenAccount,
 } from "@solana/spl-token";
 import { assert, expect } from "chai";
+import { PayeOft } from "../../target/types/paye_oft";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -34,6 +35,7 @@ const PAYE_DECIMALS = 4;
 const PAYE_SHARED_DECIMALS = 4;
 const OFT_SEED = Buffer.from("OFT");
 const PEER_SEED = Buffer.from("Peer");
+const LZ_RECEIVE_TYPES_SEED = Buffer.from("LzReceiveTypes");
 
 // EIDs used in tests
 const EID_ETH_SEPOLIA = 40161;
@@ -75,19 +77,20 @@ describe("PAYE OFT — Solana program", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.PayeOft as Program<any>;
+  const program = anchor.workspace.PayeOft as Program<PayeOft>;
   const payer = (provider.wallet as anchor.Wallet).payer;
 
   let tokenMint: PublicKey;
   let tokenEscrow: Keypair;
   let oftStore: PublicKey;
   let oftStoreBump: number;
+  let lzReceiveTypesAccounts: PublicKey;
   let treasury: Keypair;
   let mockEndpoint: PublicKey;
 
   // ── Setup ─────────────────────────────────────────────────────────────────
 
-  before(async () => {
+  beforeAll(async () => {
     treasury = Keypair.generate();
     tokenEscrow = Keypair.generate();
 
@@ -109,6 +112,11 @@ describe("PAYE OFT — Solana program", () => {
     [oftStore, oftStoreBump] = deriveOftStore(
       program.programId,
       tokenEscrow.publicKey
+    );
+
+    [lzReceiveTypesAccounts] = PublicKey.findProgramAddressSync(
+      [LZ_RECEIVE_TYPES_SEED, oftStore.toBuffer()],
+      program.programId
     );
   });
 
@@ -147,6 +155,7 @@ describe("PAYE OFT — Solana program", () => {
       .accounts({
         payer: payer.publicKey,
         oftStore,
+        lzReceiveTypesAccounts,
         tokenMint,
         tokenEscrow: tokenEscrow.publicKey,
         tokenProgram: TOKEN_PROGRAM_ID,
@@ -205,7 +214,7 @@ describe("PAYE OFT — Solana program", () => {
     await program.methods
       .setPeerConfig({
         remoteEid: EID_ETH_SEPOLIA,
-        config: { peerAddress: fakeEvmAddr },
+        config: { peerAddress: [fakeEvmAddr] },
       })
       .accounts({
         authority: treasury.publicKey,
@@ -232,7 +241,7 @@ describe("PAYE OFT — Solana program", () => {
     await program.methods
       .setPeerConfig({
         remoteEid: EID_LINEA_SEPOLIA,
-        config: { peerAddress: fakeEvmAddr },
+        config: { peerAddress: [fakeEvmAddr] },
       })
       .accounts({
         authority: payer.publicKey,
@@ -265,7 +274,7 @@ describe("PAYE OFT — Solana program", () => {
       await program.methods
         .setPeerConfig({
           remoteEid: 99999,
-          config: { peerAddress: fakeBytes },
+          config: { peerAddress: [fakeBytes] },
         })
         .accounts({
           authority: attacker.publicKey,
@@ -286,7 +295,7 @@ describe("PAYE OFT — Solana program", () => {
 
   it("T6: admin can disable developer role", async () => {
     await program.methods
-      .setOftConfig({ developerEnabled: false })
+      .setOftConfig({ developerEnabled: [false] })
       .accounts({
         admin: treasury.publicKey,
         oftStore,
@@ -304,7 +313,7 @@ describe("PAYE OFT — Solana program", () => {
       await program.methods
         .setPeerConfig({
           remoteEid: 55555,
-          config: { peerAddress: Array(32).fill(0) },
+          config: { peerAddress: [Array(32).fill(0)] },
         })
         .accounts({
           authority: payer.publicKey,
@@ -322,7 +331,7 @@ describe("PAYE OFT — Solana program", () => {
 
     // Re-enable for subsequent tests
     await program.methods
-      .setOftConfig({ developerEnabled: true })
+      .setOftConfig({ developerEnabled: [true] })
       .accounts({
         admin: treasury.publicKey,
         oftStore,
@@ -336,13 +345,13 @@ describe("PAYE OFT — Solana program", () => {
   it("T7: admin can pause and unpause the contract", async () => {
     // Set admin as pauser and unpauser for test simplicity
     await program.methods
-      .setOftConfig({ pauser: treasury.publicKey })
+      .setOftConfig({ pauser: [treasury.publicKey] })
       .accounts({ admin: treasury.publicKey, oftStore } as any)
       .signers([treasury])
       .rpc({ commitment: "confirmed" });
 
     await program.methods
-      .setOftConfig({ unpauser: treasury.publicKey })
+      .setOftConfig({ unpauser: [treasury.publicKey] })
       .accounts({ admin: treasury.publicKey, oftStore } as any)
       .signers([treasury])
       .rpc({ commitment: "confirmed" });
@@ -380,7 +389,7 @@ describe("PAYE OFT — Solana program", () => {
 
     try {
       await program.methods
-        .setOftConfig({ admin: rogue.publicKey })
+        .setOftConfig({ admin: [rogue.publicKey] })
         .accounts({ admin: rogue.publicKey, oftStore } as any)
         .signers([rogue])
         .rpc({ commitment: "confirmed" });

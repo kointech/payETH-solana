@@ -1,12 +1,27 @@
-// SPDX-License-Identifier: MIT
-// Copyright (c) 2026 Krypto Capital LLC (Koinon). All rights reserved.
-// PAYE / PayETH — Omnichain Fungible Token (LayerZero OFT v2)
+// SPDX-License-Identifier: UNLICENSED
 //
-// IP NOTICE:
-//   This contract and all derivative works are the exclusive intellectual property
-//   of Krypto Capital LLC (operating as Koinon).  No licence to reproduce, distribute,
-//   or create derivative works is granted without prior written consent from Krypto
-//   Capital LLC.
+// PAYE / PayETH — Omnichain Fungible Token (LayerZero OFT v2)
+// Issued by a United States Entity (US Virgin Islands)
+// ─────────────────────────────────────────────────────────────────────────────
+// Beneficially owned 100% by Matthew Mecke and/or assigns.
+// Held and issued through Krypto Capital LLC, a US Virgin Islands registered
+// company (interim holding entity), pending establishment of a successor USVI
+// holding company.  All rights, title, and interest in this code, the PAYE
+// token, and all related intellectual property vest solely in Matthew Mecke
+// and/or his designated assigns or successor entities.
+//
+// IP © 2025–2026 Matthew Mecke / Krypto Capital LLC (Koinon). All rights reserved.
+//
+// This code was developed under instruction from Matthew Mecke commencing
+// December 1, 2025.  At that time the beneficial owner advised that the final
+// corporate ownership structure was yet to be established; Krypto Capital LLC
+// is therefore named as the interim issuing entity.  Any successor USVI entity
+// established by Matthew Mecke shall automatically succeed to all rights herein
+// by corporate IP assignment without affecting the validity of this notice.
+//
+// No licence to reproduce, distribute, or create derivative works is granted
+// without prior written consent of the beneficial owner.
+// ─────────────────────────────────────────────────────────────────────────────
 //
 // SECURITY NOTICE:
 //   - Fixed total supply: 125,000,000 PAYE (minted once at deployment on the home chain)
@@ -67,7 +82,10 @@ contract PAYEToken is OFT, Ownable2Step {
     event SupplyMinted(address indexed treasury, uint256 amount);
 
     /// @dev Emitted when the developer address is changed.
-    event DeveloperChanged(address indexed previousDeveloper, address indexed newDeveloper);
+    event DeveloperChanged(
+        address indexed previousDeveloper,
+        address indexed newDeveloper
+    );
 
     /// @dev Emitted when the developer role is enabled or disabled.
     event DeveloperToggled(bool enabled);
@@ -80,7 +98,10 @@ contract PAYEToken is OFT, Ownable2Step {
 
     /// @dev Allows owner OR (enabled developer) to call the function.
     modifier onlyOwnerOrDeveloper() {
-        if (msg.sender != owner() && !(developerEnabled && msg.sender == developer)) {
+        if (
+            msg.sender != owner() &&
+            !(developerEnabled && msg.sender == developer)
+        ) {
             revert NotOwnerOrDeveloper();
         }
         _;
@@ -95,7 +116,11 @@ contract PAYEToken is OFT, Ownable2Step {
      * @param initialSupply Amount of PAYE (in smallest units, i.e. × 10**4) to mint
      *                     at deployment.  Must be 0 on remote chains.
      */
-    constructor(address lzEndpoint, address treasury, uint256 initialSupply) OFT(_NAME, _SYMBOL, lzEndpoint, treasury) {
+    constructor(
+        address lzEndpoint,
+        address treasury,
+        uint256 initialSupply
+    ) OFT(_NAME, _SYMBOL, lzEndpoint, treasury) {
         require(treasury != address(0), "PAYE: zero treasury");
 
         // OZ v4 Ownable defaults owner to msg.sender (deployer).
@@ -145,11 +170,15 @@ contract PAYEToken is OFT, Ownable2Step {
      *      two-step: the proposed new owner must explicitly accept before the transfer
      *      is finalised, protecting against accidental key-loss.
      */
-    function transferOwnership(address newOwner) public override(Ownable, Ownable2Step) onlyOwner {
+    function transferOwnership(
+        address newOwner
+    ) public override(Ownable, Ownable2Step) onlyOwner {
         Ownable2Step.transferOwnership(newOwner);
     }
 
-    function _transferOwnership(address newOwner) internal override(Ownable, Ownable2Step) {
+    function _transferOwnership(
+        address newOwner
+    ) internal override(Ownable, Ownable2Step) {
         Ownable2Step._transferOwnership(newOwner);
     }
 
@@ -161,7 +190,10 @@ contract PAYEToken is OFT, Ownable2Step {
      *         to the owner.  The owner can always call this regardless of the
      *         developer toggle.
      */
-    function setPeer(uint32 _eid, bytes32 _peer) public override onlyOwnerOrDeveloper {
+    function setPeer(
+        uint32 _eid,
+        bytes32 _peer
+    ) public override onlyOwnerOrDeveloper {
         _setPeer(_eid, _peer);
     }
 

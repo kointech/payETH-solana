@@ -1,7 +1,9 @@
 # payETH-solana — PAYE Solana OFT
 
-> Issued and owned by **Krypto Capital LLC (Koinon)**  
-> IP © 2026 Krypto Capital LLC. All rights reserved.
+> Issued by a United States Entity (US Virgin Islands)  
+> Beneficially owned 100% by **Matthew Mecke** and/or assigns  
+> Held through **Krypto Capital LLC (Koinon)** — interim USVI holding entity  
+> IP © 2025–2026 Matthew Mecke / Krypto Capital LLC. All rights reserved.
 
 ## Overview
 

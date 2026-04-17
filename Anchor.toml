@@ -7,15 +7,15 @@ resolution = false
 skip-lint  = false
 
 [programs.localnet]
-paye-oft = "9UovNrJD8pQyBLheeHNayuG1wJSEAoxkmM14vw5gcsTT"
+paye-oft = "ARdhYxxfEpCbz83j5Y4ubA2bWXMaxWmY2pjehXuFLM5x"
 
 [programs.devnet]
 # Replace with the actual program ID after `anchor keys sync -p paye-oft`
-paye-oft = "9UovNrJD8pQyBLheeHNayuG1wJSEAoxkmM14vw5gcsTT"
+paye-oft = "ARdhYxxfEpCbz83j5Y4ubA2bWXMaxWmY2pjehXuFLM5x"
 
 [programs.mainnet]
 # Replace with the mainnet-deployed program ID after `anchor keys sync`
-paye-oft = "9UovNrJD8pQyBLheeHNayuG1wJSEAoxkmM14vw5gcsTT"
+paye-oft = "ARdhYxxfEpCbz83j5Y4ubA2bWXMaxWmY2pjehXuFLM5x"
 
 [registry]
 url = "https://api.apr.dev"
@@ -26,3 +26,6 @@ wallet  = "~/.config/solana/id.json"
 
 [scripts]
 test = "npx jest app/tests"
+
+[test]
+startup_wait = 30000

@@ -39,9 +39,10 @@ impl WithdrawFee<'_> {
             OFTError::InvalidFee
         );
 
+        let token_escrow_key = ctx.accounts.token_escrow.key();
         let seeds: &[&[u8]] = &[
             OFT_SEED,
-            ctx.accounts.token_escrow.key().as_ref(),
+            token_escrow_key.as_ref(),
             &[ctx.accounts.oft_store.bump],
         ];
 
