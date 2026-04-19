@@ -36,6 +36,8 @@ export const EID_ETHEREUM_MAINNET = 30101;
 export const EID_ETHEREUM_SEPOLIA = 40161;
 export const EID_LINEA_MAINNET = 30183;
 export const EID_LINEA_SEPOLIA = 40287;
+export const EID_BASE_MAINNET = 30184;
+export const EID_BASE_SEPOLIA = 40245;
 export const EID_SOLANA_MAINNET = 30168;
 export const EID_SOLANA_DEVNET = 40168;
 

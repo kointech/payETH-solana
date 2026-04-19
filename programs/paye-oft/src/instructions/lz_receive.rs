@@ -3,7 +3,7 @@ use anchor_lang::solana_program;
 use anchor_spl::{
     associated_token::AssociatedToken,
     token_2022::spl_token_2022::{self, solana_program::program_option::COption},
-    token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked},
+    token_interface::{Mint, TokenAccount, TokenInterface},
 };
 use oapp::endpoint::{
     cpi::accounts::Clear,
@@ -107,7 +107,7 @@ impl LzReceive<'_> {
 
         // Decode amount and apply inbound rate limit
         let amount_sd = msg_codec::amount_sd(&params.message);
-        let mut amount_received_ld = ctx.accounts.oft_store.sd2ld(amount_sd);
+        let amount_received_ld = ctx.accounts.oft_store.sd2ld(amount_sd);
 
         if let Some(rl) = ctx.accounts.peer.inbound_rate_limiter.as_mut() {
             rl.try_consume(amount_received_ld)?;

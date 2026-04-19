@@ -49,9 +49,18 @@ test: ## Run all tests against a local validator
 dry-run-devnet: ## Simulate devnet deployment (no transactions)
 	npx ts-node app/scripts/deploy.ts --cluster devnet --dry-run
 
-deploy-devnet: ## Deploy program and create OFT on Solana devnet
-	@echo "=== Deploy Solana OFT → devnet ==="
+deploy-program-devnet: ## Upload/upgrade only the .so binary on devnet
+	@echo "=== Upload program binary → devnet ==="
+	solana program deploy target/deploy/paye_oft.so \
+		--keypair ~/.config/solana/id.json \
+		--program-id target/deploy/paye_oft-keypair.json \
+		-u devnet
+
+init-devnet: ## Run init_oft on devnet (program must already be on-chain)
+	@echo "=== Init OFT → devnet ==="
 	npx ts-node app/scripts/deploy.ts --cluster devnet
+
+deploy-devnet: deploy-program-devnet init-devnet ## Deploy program binary AND init OFT on devnet
 
 wire-devnet: ## Wire peers on Solana devnet
 	@echo "=== Wire peers → devnet ==="

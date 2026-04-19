@@ -36,6 +36,7 @@ import {
 } from "@solana/spl-token";
 import * as fs from "fs";
 import * as path from "path";
+import { EndpointProgram } from "@layerzerolabs/lz-solana-sdk-v2";
 import {
   PAYE_DECIMALS,
   PAYE_SHARED_DECIMALS,
@@ -151,9 +152,25 @@ async function main() {
   const endpointProgram =
     cluster === "mainnet" ? LZ_ENDPOINT_MAINNET : LZ_ENDPOINT_DEVNET;
 
-  // The accounts required by init_oft's remaining_accounts for register_oapp
-  // are fetched from the LayerZero SDK in production; here we pass an empty
-  // array and let the Hardhat task handle wiring (consistent with LZ devtools).
+  // Derive the lzReceiveTypesAccounts PDA
+  const LZ_RECEIVE_TYPES_SEED = Buffer.from("LzReceiveTypes");
+  const [lzReceiveTypesAccounts] = PublicKey.findProgramAddressSync(
+    [LZ_RECEIVE_TYPES_SEED, oftStore.toBuffer()],
+    programId
+  );
+
+  // Build the remaining_accounts required for the register_oapp CPI inside init_oft.
+  // The endpoint program expects: [endpointProgram, payer, oapp(oftStore),
+  // oappRegistry, systemProgram, eventAuthority, program]
+  const endpoint = new EndpointProgram.Endpoint(endpointProgram);
+  const registerOappAccounts = endpoint
+    .getRegisterOappIxAccountMetaForCPI(deployer.publicKey, oftStore)
+    .map((acc) => ({
+      pubkey: new PublicKey(acc.pubkey.toString()),
+      isSigner: false,
+      isWritable: acc.isWritable,
+    }));
+
   const tx = await program.methods
     .initOft({
       oftType: { native: {} },
@@ -164,11 +181,13 @@ async function main() {
     .accounts({
       payer: deployer.publicKey,
       oftStore,
+      lzReceiveTypesAccounts,
       tokenMint,
       tokenEscrow: escrowKeypair.publicKey,
       tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     } as any)
+    .remainingAccounts(registerOappAccounts)
     .signers([deployer, escrowKeypair])
     .rpc({ commitment: "confirmed" });
 
