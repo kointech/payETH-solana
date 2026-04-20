@@ -112,7 +112,8 @@ impl Send<'_> {
 
         // Validate that the OFT store is the expected account in remaining_accounts[1]
         require!(
-            ctx.accounts.oft_store.key() == ctx.remaining_accounts[1].key(),
+            ctx.remaining_accounts.len() > 1
+                && ctx.accounts.oft_store.key() == ctx.remaining_accounts[1].key(),
             OFTError::InvalidSender
         );
 

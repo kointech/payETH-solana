@@ -36,13 +36,17 @@ pub fn encode(
 
 pub fn send_to(message: &[u8]) -> [u8; 32] {
     let mut send_to = [0u8; 32];
-    send_to.copy_from_slice(&message[SEND_TO_OFFSET..SEND_AMOUNT_SD_OFFSET]);
+    if let Some(slice) = message.get(SEND_TO_OFFSET..SEND_AMOUNT_SD_OFFSET) {
+        send_to.copy_from_slice(slice);
+    }
     send_to
 }
 
 pub fn amount_sd(message: &[u8]) -> u64 {
     let mut bytes = [0u8; 8];
-    bytes.copy_from_slice(&message[SEND_AMOUNT_SD_OFFSET..COMPOSE_MSG_OFFSET]);
+    if let Some(slice) = message.get(SEND_AMOUNT_SD_OFFSET..COMPOSE_MSG_OFFSET) {
+        bytes.copy_from_slice(slice);
+    }
     u64::from_be_bytes(bytes)
 }
 

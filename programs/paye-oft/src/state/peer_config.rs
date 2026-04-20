@@ -42,13 +42,13 @@ impl RateLimiter {
     pub fn set_capacity(&mut self, capacity: u64) -> Result<()> {
         self.capacity = capacity;
         self.tokens = capacity;
-        self.last_refill_time = Clock::get()?.unix_timestamp.try_into().unwrap();
+        self.last_refill_time = Clock::get()?.unix_timestamp.try_into().unwrap_or(0);
         Ok(())
     }
 
     pub fn refill(&mut self, extra_tokens: u64) -> Result<()> {
         let mut new_tokens = extra_tokens;
-        let current_time: u64 = Clock::get()?.unix_timestamp.try_into().unwrap();
+        let current_time: u64 = Clock::get()?.unix_timestamp.try_into().unwrap_or(0);
         if current_time > self.last_refill_time {
             let elapsed = current_time - self.last_refill_time;
             new_tokens =
