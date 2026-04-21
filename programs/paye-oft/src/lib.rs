@@ -126,6 +126,14 @@ pub mod paye_oft {
         WithdrawFee::apply(&mut ctx, &params)
     }
 
+    /// Recover excess SOL lamports that have accumulated in the OFT store PDA
+    /// (e.g. from accidental direct SOL transfers).
+    /// Only lamports above the rent-exempt minimum are moved.
+    /// This instruction has no access to PAYE token balances.
+    pub fn recover_lamports(mut ctx: Context<RecoverLamports>) -> Result<()> {
+        RecoverLamports::apply(&mut ctx)
+    }
+
     // ── Public ─────────────────────────────────────────────────────────────
 
     /// Quote the fee breakdown for a cross-chain send without sending.
