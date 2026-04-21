@@ -140,8 +140,8 @@ make test
 
 Test coverage includes:
 
-- SPL decimals = 4
-- `sharedDecimals` = 4 (must match EVM side)
+- SPL decimals = 18
+- `sharedDecimals` = 6 (must match EVM side)
 - Mint authority is locked to OFT store PDA after init
 - Total supply starts at 0 (remote chain)
 - Bridging simulation: burn on source → credit on destination

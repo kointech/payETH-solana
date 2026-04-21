@@ -31,8 +31,8 @@ import { PayeOft } from "../../target/types/paye_oft";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PAYE_DECIMALS = 4;
-const PAYE_SHARED_DECIMALS = 4;
+const PAYE_DECIMALS = 18;
+const PAYE_SHARED_DECIMALS = 6;
 const OFT_SEED = Buffer.from("OFT");
 const PEER_SEED = Buffer.from("Peer");
 const LZ_RECEIVE_TYPES_SEED = Buffer.from("LzReceiveTypes");
@@ -120,9 +120,9 @@ describe("PAYE OFT — Solana program", () => {
     );
   });
 
-  // ── T1: SPL mint has 4 decimal places ────────────────────────────────────
+  // ── T1: SPL mint has 18 decimal places ───────────────────────────────────
 
-  it("T1: SPL mint is created with 4 decimal places", async () => {
+  it("T1: SPL mint is created with 18 decimal places", async () => {
     tokenMint = await createMint(
       provider.connection,
       payer,
@@ -136,13 +136,13 @@ describe("PAYE OFT — Solana program", () => {
 
     const mintInfo = await provider.connection.getParsedAccountInfo(tokenMint);
     const data = (mintInfo.value?.data as any).parsed.info;
-    expect(data.decimals).to.equal(PAYE_DECIMALS, "SPL mint must have 4 decimals");
+    expect(data.decimals).to.equal(PAYE_DECIMALS, "SPL mint must have 18 decimals");
     console.log(`  ✓ mint decimals = ${data.decimals}`);
   });
 
-  // ── T2: sharedDecimals == 4 (ld2sd_rate == 1) ────────────────────────────
+  // ── T2: sharedDecimals == 6 (ld2sd_rate == 10^12) ─────────────────────────
 
-  it("T2: init_oft succeeds and ld2sd_rate is 1 (no dust)", async () => {
+  it("T2: init_oft succeeds and ld2sd_rate is 1_000_000_000_000", async () => {
     // init_oft requires remaining_accounts for register_oapp CPI.
     // In local tests these are empty (mock endpoint accepts empty array).
     await program.methods
@@ -166,10 +166,10 @@ describe("PAYE OFT — Solana program", () => {
 
     const store = await program.account.oftStore.fetch(oftStore);
 
-    // ld2sd_rate = 10^(local_dec - shared_dec) = 10^(4-4) = 1
+    // ld2sd_rate = 10^(local_dec - shared_dec) = 10^(18-6) = 10^12
     expect(store.ld2sdRate.toNumber()).to.equal(
-      1,
-      "ld2sd_rate must be 1 (shared_decimals == decimals → no dust)"
+      1_000_000_000_000,
+      "ld2sd_rate must be 10^12 (18 local decimals, 6 shared decimals)"
     );
     expect(store.admin.toBase58()).to.equal(
       treasury.publicKey.toBase58(),

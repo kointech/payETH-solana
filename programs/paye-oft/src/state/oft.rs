@@ -11,7 +11,7 @@ pub struct OFTStore {
     /// PAYE on Solana is always Native (remote chain).
     pub oft_type: OFTType,
     /// local-decimals / shared-decimals conversion rate.
-    /// Because PAYE uses 4 local decimals and 4 shared decimals, this is 1.
+    /// PAYE uses 18 local decimals and 6 shared decimals → rate = 10^12.
     pub ld2sd_rate: u64,
     /// The SPL mint for PAYE on Solana.
     pub token_mint: Pubkey,

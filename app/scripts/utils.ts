@@ -26,8 +26,8 @@ dotenv.config();
 
 // ─── PAYE constants ────────────────────────────────────────────────────────────
 
-export const PAYE_DECIMALS = 4;
-export const PAYE_SHARED_DECIMALS = 4;
+export const PAYE_DECIMALS = 18;
+export const PAYE_SHARED_DECIMALS = 6;
 export const PAYE_NAME = "PayETH";
 export const PAYE_SYMBOL = "PAYE";
 

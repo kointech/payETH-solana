@@ -13,10 +13,10 @@
  *   3. Treasury keypair available at TREASURY_KEYPAIR_PATH
  *
  * What this script does:
- *   1. Creates the PAYE SPL mint with 4 decimal places
+ *   1. Creates the PAYE SPL mint with 18 decimal places
  *   2. Calls init_oft on the PAYE OFT program:
  *      - Sets OFT type = Native (burn/mint)
- *      - Sets shared_decimals = 4
+ *      - Sets shared_decimals = 6
  *      - Sets admin = treasury wallet
  *      - Registers the OApp with the LayerZero Endpoint
  *   3. Saves deployment artifacts to deployments/solana-{cluster}.json
@@ -123,7 +123,7 @@ async function main() {
   const program = new anchor.Program(idl, provider);
 
   // ── Step 1: Create PAYE SPL mint ───────────────────────────────────────────
-  console.log("\n[1/2] Creating PAYE SPL mint (4 decimals)…");
+  console.log("\n[1/2] Creating PAYE SPL mint (18 decimals)…");
 
   // Mint authority will be the deployer initially; after init_oft the OFT store
   // becomes the effective mint authority via the SPL multisig or directly.

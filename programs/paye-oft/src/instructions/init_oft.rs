@@ -11,7 +11,7 @@ use oapp::endpoint::{instructions::RegisterOAppParams, ID as ENDPOINT_ID};
 /// key — mirroring the EVM constructor behaviour.
 ///
 /// PAYE parameters:
-///   - `shared_decimals` must be 4 (must match the EVM sharedDecimals)
+///   - `shared_decimals` must be 6 (must match the EVM sharedDecimals)
 ///   - `oft_type`        must be `OFTType::Native` (remote chain: burn/mint)
 #[derive(Accounts)]
 pub struct InitOFT<'info> {
@@ -39,7 +39,7 @@ pub struct InitOFT<'info> {
     )]
     pub lz_receive_types_accounts: Account<'info, LzReceiveTypesAccounts>,
 
-    /// The PAYE SPL mint (4 decimals).  Must already exist before calling this.
+    /// The PAYE SPL mint (18 decimals).  Must already exist before calling this.
     #[account(mint::token_program = token_program)]
     pub token_mint: InterfaceAccount<'info, Mint>,
 
@@ -59,14 +59,14 @@ pub struct InitOFT<'info> {
 
 impl InitOFT<'_> {
     pub fn apply(ctx: &mut Context<InitOFT>, params: &InitOFTParams) -> Result<()> {
-        // Validate that shared_decimals == PAYE_SHARED_DECIMALS (4)
+        // Validate that shared_decimals == PAYE_SHARED_DECIMALS (6)
         require!(
             ctx.accounts.token_mint.decimals >= params.shared_decimals,
             OFTError::InvalidDecimals
         );
 
         // Compute conversion rate: 10^(local_dec - shared_dec).
-        // For PAYE: 4 - 4 = 0 → rate = 1 (no dust).
+        // For PAYE: 18 - 6 = 12 → rate = 10^12.
         ctx.accounts.oft_store.ld2sd_rate =
             10u64.pow((ctx.accounts.token_mint.decimals - params.shared_decimals) as u32);
 

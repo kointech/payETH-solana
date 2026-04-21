@@ -30,8 +30,8 @@
 //   supply constant at 125,000,000 PAYE across all connected chains.
 //
 //   Token settings that MUST match the EVM deployment:
-//     decimals       = 4
-//     sharedDecimals = 4   → ld2sd_rate = 1 (no dust loss)
+//     decimals       = 18
+//     sharedDecimals = 6   → ld2sd_rate = 10^12 (dust ≤ 10^-6 PAYE per bridge tx)
 
 use anchor_lang::prelude::*;
 

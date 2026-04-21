@@ -47,19 +47,21 @@ import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
  *         It is a LayerZero OFT (Omnichain Fungible Token) with a fixed total supply
  *         of 125,000,000 PAYE distributed across all connected chains.
  *
- * @dev Decimals are set to 4 (not the ERC-20 default of 18).
- *      sharedDecimals() is overridden to 4 so the inter-chain decimal conversion
- *      rate is exactly 1 (no dust loss on any EVM chain).
+ * @dev Decimals follow the ERC-20 standard of 18.
+ *      sharedDecimals() is overridden to 6 (the LayerZero OFT default for
+ *      18-decimal tokens) so the wire-format amount_sd fits in uint64 across
+ *      all chains.  The resulting decimalConversionRate = 10^12 means dust up
+ *      to 10^-6 PAYE can be lost per bridging operation.
  *
  *      Deployment pattern:
- *        • Home chain   → pass initialSupply = 125_000_000 * 10**4
+ *        • Home chain   → pass initialSupply = 125_000_000 * 10**18
  *        • Remote chains → pass initialSupply = 0
  */
 contract PAYEToken is OFT, Ownable2Step {
     // ─── Constants ────────────────────────────────────────────────────────────
 
-    uint8 private constant _DECIMALS = 4;
-    uint8 private constant _SHARED_DECIMALS = 4;
+    uint8 private constant _DECIMALS = 18;
+    uint8 private constant _SHARED_DECIMALS = 6;
     string private constant _NAME = "PayETH";
     string private constant _SYMBOL = "PAYE";
 
