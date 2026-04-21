@@ -73,6 +73,18 @@ dry-run-mainnet: ## Simulate mainnet deployment (no transactions)
 
 deploy-mainnet: ## Deploy program and create OFT on Solana mainnet
 	@echo "⚠  MAINNET DEPLOYMENT — proceed with caution"
+	@DEVNET_ID=$$(grep -A2 '\[programs\.devnet\]' Anchor.toml | awk -F'"' '/paye-oft/{print $$2}'); \
+	MAINNET_ID=$$(grep -A2 '\[programs\.mainnet\]' Anchor.toml | awk -F'"' '/paye-oft/{print $$2}'); \
+	if [ -z "$$MAINNET_ID" ]; then \
+	  echo "ERROR: [programs.mainnet] paye-oft is not set in Anchor.toml."; \
+	  echo "       Set a distinct mainnet program ID before deploying."; \
+	  exit 1; \
+	fi; \
+	if [ "$$MAINNET_ID" = "$$DEVNET_ID" ]; then \
+	  echo "ERROR: mainnet program ID matches devnet ID ($$MAINNET_ID)."; \
+	  echo "       Set a distinct mainnet program ID in Anchor.toml before deploying."; \
+	  exit 1; \
+	fi
 	@read -p "Are you sure? (yes/no) " CONFIRM; \
 	[ "$$CONFIRM" = "yes" ] || (echo "Aborted."; exit 1)
 	npx ts-node app/scripts/deploy.ts --cluster mainnet
