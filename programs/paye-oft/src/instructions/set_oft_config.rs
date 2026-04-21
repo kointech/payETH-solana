@@ -58,6 +58,12 @@ impl SetOFTConfig<'_> {
             SetOFTConfigParams::Developer(new_developer) => {
                 let previous = ctx.accounts.oft_store.developer;
                 ctx.accounts.oft_store.developer = new_developer;
+                // Mirror EVM behaviour: setting developer to the zero address
+                // auto-disables the role to prevent an inconsistent state.
+                if new_developer == Pubkey::default() {
+                    ctx.accounts.oft_store.developer_enabled = false;
+                    emit!(crate::events::DeveloperToggled { enabled: false });
+                }
                 emit!(crate::events::DeveloperChanged {
                     previous_developer: previous,
                     new_developer,
