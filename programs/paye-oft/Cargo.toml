@@ -19,6 +19,20 @@ idl-build      = ["anchor-lang/idl-build", "anchor-spl/idl-build", "oapp/idl-bui
 [dependencies]
 anchor-lang   = { version = "0.31.1", features = ["init-if-needed"] }
 anchor-spl    = "0.31.1"
-oapp          = { package = "oapp-latest",    git = "https://github.com/LayerZero-Labs/LayerZero-v2.git", rev = "c09287a" }
-utils         = { package = "utils-latest",   git = "https://github.com/LayerZero-Labs/LayerZero-v2.git", rev = "c09287a" }
+# LayerZero Solana SDK — pinned to a specific upstream commit.
+#
+# Commit : c09287a8b1f236fcc057f474d8a773a0fb7758df
+# Date   : 2025-10-02
+# PR     : LayerZero-Labs/LayerZero-v2#152
+# Title  : "Feat(Solana): Implement LzReceiveTypes V2 with Multi-Instruction
+#           and ALT Support"
+#
+# LayerZero does not yet publish versioned crates to crates.io for these
+# packages (they are aliased as `oapp-latest` / `utils-latest`).  Until a
+# semver release is available, pin to the full 40-char SHA to prevent silent
+# history rewrites from changing the resolved source.  When LZ ships a tagged
+# release, migrate to:
+#   oapp = { version = "<semver>", registry = "crates-io" }
+oapp          = { package = "oapp-latest",    git = "https://github.com/LayerZero-Labs/LayerZero-v2.git", rev = "c09287a8b1f236fcc057f474d8a773a0fb7758df" }
+utils         = { package = "utils-latest",   git = "https://github.com/LayerZero-Labs/LayerZero-v2.git", rev = "c09287a8b1f236fcc057f474d8a773a0fb7758df" }
 solana-helper = "0.1.0"
