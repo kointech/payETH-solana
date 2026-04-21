@@ -82,6 +82,12 @@ pub struct LzReceive<'info> {
 
 impl LzReceive<'_> {
     pub fn apply(ctx: &mut Context<LzReceive>, params: &LzReceiveParams) -> Result<()> {
+        // Reject truncated messages before any decoding.  A well-formed OFT
+        // message is always at least COMPOSE_MSG_OFFSET (40) bytes.
+        require!(
+            params.message.len() >= msg_codec::COMPOSE_MSG_OFFSET,
+            OFTError::InvalidMessage
+        );
         require!(!ctx.accounts.oft_store.paused, OFTError::Paused);
 
         let escrow_key = ctx.accounts.token_escrow.key();

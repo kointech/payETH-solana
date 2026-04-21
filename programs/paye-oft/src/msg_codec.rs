@@ -9,7 +9,9 @@ use crate::*;
 
 const SEND_TO_OFFSET: usize = 0;
 const SEND_AMOUNT_SD_OFFSET: usize = 32;
-const COMPOSE_MSG_OFFSET: usize = 40;
+/// Minimum valid message length: 32 bytes (send_to) + 8 bytes (amount_sd).
+/// Exported so callers can validate before decoding.
+pub const COMPOSE_MSG_OFFSET: usize = 40;
 
 /// Encode an OFT send message.
 pub fn encode(

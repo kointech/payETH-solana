@@ -44,6 +44,12 @@ impl LzReceiveTypes<'_> {
         ctx: &Context<LzReceiveTypes>,
         params: &LzReceiveParams,
     ) -> Result<Vec<LzAccount>> {
+        // Guard against truncated messages before deriving the recipient address.
+        require!(
+            params.message.len() >= msg_codec::COMPOSE_MSG_OFFSET,
+            OFTError::InvalidMessage
+        );
+
         let (peer, _) = Pubkey::find_program_address(
             &[PEER_SEED, ctx.accounts.oft_store.key().as_ref(), &params.src_eid.to_be_bytes()],
             ctx.program_id,

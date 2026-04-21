@@ -22,4 +22,6 @@ pub enum OFTError {
     Paused,
     /// `accept_admin` was called but no pending admin has been nominated.
     NoPendingAdmin,
+    /// The LayerZero message payload is too short to be a valid OFT message.
+    InvalidMessage,
 }
