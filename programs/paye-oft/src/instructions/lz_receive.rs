@@ -1,9 +1,8 @@
 use crate::*;
-use anchor_lang::solana_program;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token_2022::spl_token_2022::{self, solana_program::program_option::COption},
-    token_interface::{Mint, TokenAccount, TokenInterface},
+    token_2022::spl_token_2022::solana_program::program_option::COption,
+    token_interface::{mint_to, Mint, MintTo, TokenAccount, TokenInterface},
 };
 use oapp::endpoint::{
     cpi::accounts::Clear,
@@ -116,29 +115,37 @@ impl LzReceive<'_> {
             rl.refill(amount_received_ld)?;
         }
 
-        // Mint tokens to recipient
+        // Mint tokens to recipient.
         // PAYE on Solana is always Native (burn/mint), never Adapter.
         let mint_authority =
             ctx.accounts.mint_authority.as_ref().ok_or(error!(OFTError::InvalidMintAuthority))?;
 
-        let ix = spl_token_2022::instruction::mint_to(
-            ctx.accounts.token_program.key,
-            &ctx.accounts.token_mint.key(),
-            &ctx.accounts.token_dest.key(),
-            mint_authority.key,
-            &[&ctx.accounts.oft_store.key()],
-            amount_received_ld,
-        )?;
-        solana_program::program::invoke_signed(
-            &ix,
-            &[
-                ctx.accounts.token_dest.to_account_info(),
-                ctx.accounts.token_mint.to_account_info(),
-                mint_authority.to_account_info(),
-                ctx.accounts.oft_store.to_account_info(),
-            ],
-            &[seeds],
-        )?;
+        // Build the CpiContext using Anchor's token_interface wrapper so that
+        // Token-2022 extension hooks are handled correctly.
+        //
+        // Case 1 — multisig authority: oft_store is a multisig member (not the
+        //           authority itself); pass it as a remaining account so Anchor
+        //           forwards it to spl_token_2022 as a multisig signer and signs
+        //           using the PDA seeds.
+        // Case 2 — direct authority: oft_store IS the mint authority; no extra
+        //           signers are needed beyond the PDA seeds.
+        let cpi_ctx = {
+            let base = CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                MintTo {
+                    mint: ctx.accounts.token_mint.to_account_info(),
+                    to: ctx.accounts.token_dest.to_account_info(),
+                    authority: mint_authority.to_account_info(),
+                },
+                &[seeds],
+            );
+            if mint_authority.key() != ctx.accounts.oft_store.key() {
+                base.with_remaining_accounts(vec![ctx.accounts.oft_store.to_account_info()])
+            } else {
+                base
+            }
+        };
+        mint_to(cpi_ctx, amount_received_ld)?;
 
         // Forward compose message if present
         if let Some(message) = msg_codec::compose_msg(&params.message) {

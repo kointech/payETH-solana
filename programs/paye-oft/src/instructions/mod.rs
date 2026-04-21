@@ -1,3 +1,4 @@
+pub mod accept_admin;
 pub mod init_oft;
 pub mod lz_receive;
 pub mod lz_receive_types;
@@ -9,6 +10,7 @@ pub mod set_pause;
 pub mod set_peer_config;
 pub mod withdraw_fee;
 
+pub use accept_admin::*;
 pub use init_oft::*;
 pub use lz_receive::*;
 pub use lz_receive_types::*;

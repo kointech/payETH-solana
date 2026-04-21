@@ -33,11 +33,15 @@ pub struct WithdrawFee<'info> {
 
 impl WithdrawFee<'_> {
     pub fn apply(ctx: &mut Context<WithdrawFee>, params: &WithdrawFeeParams) -> Result<()> {
-        // Available fees = escrow balance - TVL (for Native OFT, TVL is always 0)
-        require!(
-            ctx.accounts.token_escrow.amount - ctx.accounts.oft_store.tvl_ld >= params.fee_ld,
-            OFTError::InvalidFee
-        );
+        // Available fees = escrow balance - TVL (for Native OFT, TVL is always 0).
+        // Use checked_sub to avoid panic/wrap if accounting invariants are violated.
+        let available = ctx
+            .accounts
+            .token_escrow
+            .amount
+            .checked_sub(ctx.accounts.oft_store.tvl_ld)
+            .ok_or(OFTError::InvalidFee)?;
+        require!(available >= params.fee_ld, OFTError::InvalidFee);
 
         let token_escrow_key = ctx.accounts.token_escrow.key();
         let seeds: &[&[u8]] = &[

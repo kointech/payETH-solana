@@ -39,6 +39,11 @@ pub struct OFTStore {
     /// Optional address that may unpause the contract.
     pub unpauser: Option<Pubkey>,
 
+    // ── Pending admin (two-step transfer, mirrors Ownable2Step) ─────────────
+    /// Nominated successor admin. `None` until `set_oft_config(Admin(...))` is
+    /// called. The nominee must call `accept_admin` to complete the transfer.
+    pub pending_admin: Option<Pubkey>,
+
     // ── Developer role (mirrors EVM contract) ────────────────────────────
     /// Address authorised to call set_peer_config on behalf of the admin.
     pub developer: Pubkey,

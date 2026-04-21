@@ -95,7 +95,15 @@ pub mod paye_oft {
     ) -> Result<()> {
         SetOFTConfig::apply(&mut ctx, &params)
     }
-
+    /// Complete a two-step admin transfer.
+    ///
+    /// The pending admin (nominated via `set_oft_config(Admin(...))`) must sign
+    /// this transaction to become the new admin. Until they do, the current admin
+    /// retains full authority and can cancel the nomination by calling
+    /// `set_oft_config(Admin(...))` again with a different pubkey.
+    pub fn accept_admin(mut ctx: Context<AcceptAdmin>) -> Result<()> {
+        AcceptAdmin::apply(&mut ctx)
+    }
     /// Register or update a peer OFT address on a remote chain.
     /// Callable by the `admin` OR the `developer` (when developer role is active).
     pub fn set_peer_config(

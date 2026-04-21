@@ -31,3 +31,17 @@ pub struct DeveloperChanged {
 pub struct DeveloperToggled {
     pub enabled: bool,
 }
+
+/// Emitted when a new admin is nominated (step 1 of two-step transfer).
+#[event]
+pub struct AdminTransferInitiated {
+    pub current_admin: Pubkey,
+    pub pending_admin: Pubkey,
+}
+
+/// Emitted when the pending admin accepts the role (step 2).
+#[event]
+pub struct AdminAccepted {
+    pub previous_admin: Pubkey,
+    pub new_admin: Pubkey,
+}

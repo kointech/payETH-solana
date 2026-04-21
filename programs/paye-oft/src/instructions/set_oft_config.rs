@@ -19,7 +19,14 @@ impl SetOFTConfig<'_> {
     pub fn apply(ctx: &mut Context<SetOFTConfig>, params: &SetOFTConfigParams) -> Result<()> {
         match params.clone() {
             SetOFTConfigParams::Admin(new_admin) => {
-                ctx.accounts.oft_store.admin = new_admin;
+                // Step 1 of two-step ownership transfer: nominate the new admin.
+                // The nominee must call `accept_admin` to complete the transfer.
+                let current = ctx.accounts.oft_store.admin;
+                ctx.accounts.oft_store.pending_admin = Some(new_admin);
+                emit!(crate::events::AdminTransferInitiated {
+                    current_admin: current,
+                    pending_admin: new_admin,
+                });
             },
             SetOFTConfigParams::Delegate(delegate) => {
                 // Update the OApp delegate on the LayerZero Endpoint.

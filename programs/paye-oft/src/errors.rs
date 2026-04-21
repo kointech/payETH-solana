@@ -20,4 +20,6 @@ pub enum OFTError {
     InvalidMintAuthority,
     /// All sends and receives are paused.
     Paused,
+    /// `accept_admin` was called but no pending admin has been nominated.
+    NoPendingAdmin,
 }

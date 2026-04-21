@@ -82,6 +82,7 @@ impl InitOFT<'_> {
         ctx.accounts.oft_store.paused = false;
         ctx.accounts.oft_store.pauser = None;
         ctx.accounts.oft_store.unpauser = None;
+        ctx.accounts.oft_store.pending_admin = None;
 
         // Deployer (payer) becomes the initial developer so they can wire peers
         // immediately without holding the treasury key.
