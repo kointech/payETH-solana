@@ -15,6 +15,7 @@
 | High (fixed)          | 1     | ✅ Fixed |
 | Medium (fixed)        | 2     | ✅ Fixed |
 | Low (fixed)           | 1     | ✅ Fixed |
+| **Overflow (fixed)**  | **1** | **✅ Fixed** |
 | cargo audit CVEs      | 0     | ✅ Clean |
 | cargo audit warnings  | 4     | ⚠️ Upstream (Solana SDK) |
 
@@ -118,6 +119,34 @@ The parameter was declared as `compose_msg: &Vec<u8>`. Clippy flags this as a co
 
 ---
 
+### [OVERFLOW] `sd2ld()` multiplication overflow in `state/oft.rs`
+
+**File:** `programs/paye-oft/src/state/oft.rs`  
+**Callers:** `lz_receive.rs`, `lz_receive_types.rs`
+
+**Problem:**  
+`sd2ld()` computed `amount_sd * self.ld2sd_rate` as plain `u64` multiplication. With `ld2sd_rate = 10^12` (for 18 local decimals – 6 shared decimals), amounts above **~18.4 million PAYE tokens** (≈ `u64::MAX / 10^12` in shared-decimal units) wrap silently in BPF release mode. The wrapped value is far smaller than intended, causing the `mint_to` CPI in `lz_receive` to mint an incorrect (much smaller) quantity — a loss-of-funds bug for large transfers.
+
+```rust
+// BEFORE (vulnerable):
+pub fn sd2ld(&self, amount_sd: u64) -> u64 {
+    amount_sd * self.ld2sd_rate  // wraps silently if amount_sd > ~18.4e6
+}
+```
+
+**Fix applied:** Use `checked_mul` and return `Err(OFTError::ArithmeticOverflow)` on overflow. Both call-sites propagate the error with `?`, rejecting oversized messages cleanly.
+
+```rust
+// AFTER (fixed):
+pub fn sd2ld(&self, amount_sd: u64) -> Result<u64> {
+    amount_sd
+        .checked_mul(self.ld2sd_rate)
+        .ok_or_else(|| error!(OFTError::ArithmeticOverflow))
+}
+```
+
+---
+
 ## `cargo audit` Results
 
 **Command:** `cargo audit` (advisory DB fetched 2026-04-20, 1049 advisories)  
@@ -156,3 +185,7 @@ These are not bugs but observations from reviewing the overall contract design:
 | `programs/paye-oft/src/compose_msg_codec.rs` | `nonce()`, `src_eid()`, `amount_ld()`, `compose_from()` — checked slicing; `encode()` — `&Vec<u8>` → `&[u8]` |
 | `programs/paye-oft/src/instructions/send.rs` | `remaining_accounts[1]` — bounds-checked |
 | `programs/paye-oft/src/state/peer_config.rs` | `set_capacity()`, `refill()` — `.unwrap()` → `.unwrap_or(0)` |
+| `programs/paye-oft/src/state/oft.rs` | `sd2ld()` — `u64` multiplication → `checked_mul` returning `Result<u64>` |
+| `programs/paye-oft/src/errors.rs` | Added `ArithmeticOverflow` variant |
+| `programs/paye-oft/src/instructions/lz_receive.rs` | `sd2ld()` call — propagates overflow error with `?` |
+| `programs/paye-oft/src/instructions/lz_receive_types.rs` | `sd2ld()` call — propagates overflow error with `?` |

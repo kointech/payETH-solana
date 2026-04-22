@@ -122,7 +122,7 @@ impl LzReceiveTypes<'_> {
 
         if let Some(message) = msg_codec::compose_msg(&params.message) {
             let amount_sd = msg_codec::amount_sd(&params.message);
-            let amount_ld = ctx.accounts.oft_store.sd2ld(amount_sd);
+            let amount_ld = ctx.accounts.oft_store.sd2ld(amount_sd)?;
             let accounts_for_compose = oapp::endpoint_cpi::get_accounts_for_send_compose(
                 endpoint_program,
                 &ctx.accounts.oft_store.key(),

@@ -7,7 +7,8 @@ use oapp::endpoint::{instructions::RegisterOAppParams, ID as ENDPOINT_ID};
 ///
 /// Must be called once, immediately after deployment.  The supplied `admin`
 /// becomes the treasury authority.  The transaction signer (deployer) is set
-/// as the initial `developer` so they can wire peers without holding the treasury
+/// as the initial `developer` and as the initial LayerZero OApp delegate so
+/// they can wire peers + endpoint/ULN/DVN config without holding the treasury
 /// key — mirroring the EVM constructor behaviour.
 ///
 /// PAYE parameters:
@@ -99,13 +100,15 @@ impl InitOFT<'_> {
         ctx.accounts.lz_receive_types_accounts.oft_store = ctx.accounts.oft_store.key();
         ctx.accounts.lz_receive_types_accounts.token_mint = ctx.accounts.token_mint.key();
 
-        // Register this OApp with the LayerZero Endpoint
+        // Register this OApp with the LayerZero Endpoint.
+        // The deployer (payer) becomes the initial delegate so developer
+        // operations can run immediately after deployment.
         oapp::endpoint_cpi::register_oapp(
             ctx.accounts.oft_store.endpoint_program,
             ctx.accounts.oft_store.key(),
             ctx.remaining_accounts,
             &[OFT_SEED, ctx.accounts.token_escrow.key().as_ref(), &[ctx.bumps.oft_store]],
-            RegisterOAppParams { delegate: params.admin },
+            RegisterOAppParams { delegate: ctx.accounts.payer.key() },
         )
     }
 }

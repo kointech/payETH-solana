@@ -18,7 +18,7 @@
  *      - Sets OFT type = Native (burn/mint)
  *      - Sets shared_decimals = 6
  *      - Sets admin = treasury wallet
- *      - Registers the OApp with the LayerZero Endpoint
+ *      - Registers the OApp with the LayerZero Endpoint (delegate = deployer)
  *   3. Saves deployment artifacts to deployments/solana-{cluster}.json
  */
 

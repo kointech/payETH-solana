@@ -66,8 +66,11 @@ impl OFTStore {
     }
 
     /// Convert a shared-decimal amount to local-decimal amount.
-    pub fn sd2ld(&self, amount_sd: u64) -> u64 {
-        amount_sd * self.ld2sd_rate
+    /// Returns `Err(ArithmeticOverflow)` if the multiplication would wrap.
+    pub fn sd2ld(&self, amount_sd: u64) -> Result<u64> {
+        amount_sd
+            .checked_mul(self.ld2sd_rate)
+            .ok_or_else(|| error!(OFTError::ArithmeticOverflow))
     }
 
     /// Remove sub-shared-decimal dust from a local amount.

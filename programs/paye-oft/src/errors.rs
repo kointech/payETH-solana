@@ -24,4 +24,6 @@ pub enum OFTError {
     NoPendingAdmin,
     /// The LayerZero message payload is too short to be a valid OFT message.
     InvalidMessage,
+    /// A token amount conversion would overflow u64 (amount_sd × ld2sd_rate > u64::MAX).
+    ArithmeticOverflow,
 }
