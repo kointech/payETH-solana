@@ -8,7 +8,7 @@
 
 .PHONY: help build test deploy-devnet deploy-mainnet configure-lz-devnet configure-lz-mainnet \
         dry-run-devnet dry-run-mainnet clean keys oft-store-bytes32-devnet oft-store-bytes32-mainnet \
-        set-delegate-devnet set-delegate-mainnet to-bytes32
+        set-delegate-devnet set-delegate-mainnet to-bytes32 to-b32
 
 help: ## Show this help
 	@awk 'BEGIN{FS=":.*##"} /^[a-zA-Z_-]+:.*##/{printf "  \033[36m%-22s\033[0m %s\n",$$1,$$2}' $(MAKEFILE_LIST)
@@ -85,10 +85,18 @@ configure-lz-mainnet: ## Configure LayerZero peers on Solana mainnet
 	npx ts-node app/scripts/ConfigureLz.ts --cluster mainnet
 
 # ── OFT Store bytes32 ─────────────────────────────────────────────────────────
+# Accept address as positional arg OR ADDR= variable:
+#   make to-b32 AYzvhvYYmBU72saFBveRgRvXL3BpQwQv1E5uDL4bBM3F
+#   make to-b32 ADDR=AYzvhvYYmBU72saFBveRgRvXL3BpQwQv1E5uDL4bBM3F
+_B32_ADDR := $(or $(ADDR),$(filter-out to-b32 to-bytes32,$(MAKECMDGOALS)))
 
-to-b32: ## Convert any Solana address to bytes32 hex. Usage: make to-bytes32 ADDR=<base58>
-	@[ -n "$(ADDR)" ] || (echo "Error: ADDR is not set. Usage: make to-bytes32 ADDR=<base58>"; exit 1)
-	npx ts-node app/scripts/toBytes32.ts $(ADDR)
+to-b32 to-bytes32: ## Convert a Solana address to bytes32 hex: make to-b32 <base58>
+	@[ -n "$(_B32_ADDR)" ] || (echo "Usage: make to-b32 <base58-address>"; exit 1)
+	@npx ts-node app/scripts/toBytes32.ts $(_B32_ADDR)
+
+# Absorb the address token so make doesn't treat it as a separate target
+%:
+	@:
 
 oft-store-bytes32-devnet: ## Print OFT Store address as bytes32 (use as REMOTE_PEER_BYTES32 on EVM side)
 	@node -e " \
