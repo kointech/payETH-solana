@@ -49,16 +49,11 @@ use oapp::{
     endpoint::{MessagingFee, MessagingReceipt},
     LzReceiveParams,
 };
-use solana_helper::program_id_from_env;
 use state::*;
 
-// Program ID is injected at build time via the OFT_ID env variable.
-// After running `anchor keys sync -p paye-oft`, replace the fallback below
-// with the generated program ID and commit it to the repo.
-declare_id!(Pubkey::new_from_array(program_id_from_env!(
-    "OFT_ID",
-    "ARdhYxxfEpCbz83j5Y4ubA2bWXMaxWmY2pjehXuFLM5x"
-)));
+// Program ID — matches the keypair in target/deploy/paye_oft-keypair.json.
+// Keep in sync with [programs.*] in Anchor.toml.
+declare_id!("DVdt6bvCyjJjmVW27zEmX9NTJCenenSouheLsVFoD53H");
 
 // ─── PDA seeds ────────────────────────────────────────────────────────────────
 pub const OFT_SEED: &[u8] = b"OFT";

@@ -6,8 +6,9 @@
 # IP © 2025–2026 Matthew Mecke / Krypto Capital LLC. All rights reserved.
 # ─────────────────────────────────────────────────────────────────────────────
 
-.PHONY: help build test deploy-devnet deploy-mainnet wire-devnet wire-mainnet \
-        dry-run-devnet dry-run-mainnet clean keys
+.PHONY: help build test deploy-devnet deploy-mainnet configure-lz-devnet configure-lz-mainnet \
+        dry-run-devnet dry-run-mainnet clean keys oft-store-bytes32-devnet oft-store-bytes32-mainnet \
+        set-delegate-devnet set-delegate-mainnet to-bytes32
 
 help: ## Show this help
 	@awk 'BEGIN{FS=":.*##"} /^[a-zA-Z_-]+:.*##/{printf "  \033[36m%-22s\033[0m %s\n",$$1,$$2}' $(MAKEFILE_LIST)
@@ -22,22 +23,10 @@ keys: ## Generate / sync program keypairs and show IDs
 # ── Build ─────────────────────────────────────────────────────────────────────
 
 build: ## Build the Anchor program (local toolchain — fast, for development)
-	@PROGRAM_ID=$$(anchor keys list 2>/dev/null | awk '/paye[_-]oft/{print $$2}'); \
-	if [ -z "$$PROGRAM_ID" ]; then \
-	  echo "Run 'make keys' first to generate the program keypair."; \
-	  exit 1; \
-	fi; \
-	echo "Building with OFT_ID=$$PROGRAM_ID …"; \
-	anchor build -e OFT_ID=$$PROGRAM_ID
+	anchor build
 
 build-verifiable: ## Verifiable build via Docker (required for mainnet deployment)
-	@PROGRAM_ID=$$(anchor keys list 2>/dev/null | awk '/paye[_-]oft/{print $$2}'); \
-	if [ -z "$$PROGRAM_ID" ]; then \
-	  echo "Run 'make keys' first to generate the program keypair."; \
-	  exit 1; \
-	fi; \
-	echo "Verifiable build with OFT_ID=$$PROGRAM_ID (requires Docker) …"; \
-	anchor build -v -e OFT_ID=$$PROGRAM_ID
+	anchor build -v
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -62,9 +51,9 @@ init-devnet: ## Run init_oft on devnet (program must already be on-chain)
 
 deploy-devnet: deploy-program-devnet init-devnet ## Deploy program binary AND init OFT on devnet
 
-wire-devnet: ## Wire peers on Solana devnet
-	@echo "=== Wire peers → devnet ==="
-	npx ts-node app/scripts/wire.ts --cluster devnet
+configure-lz-devnet: ## Configure LayerZero peers on Solana devnet
+	@echo "=== Configure LayerZero peers → devnet ==="
+	npx ts-node app/scripts/ConfigureLz.ts --cluster devnet
 
 # ── Mainnet ───────────────────────────────────────────────────────────────────
 
@@ -89,11 +78,51 @@ deploy-mainnet: ## Deploy program and create OFT on Solana mainnet
 	[ "$$CONFIRM" = "yes" ] || (echo "Aborted."; exit 1)
 	npx ts-node app/scripts/deploy.ts --cluster mainnet
 
-wire-mainnet: ## Wire peers on Solana mainnet
-	@echo "⚠  MAINNET WIRING — proceed with caution"
+configure-lz-mainnet: ## Configure LayerZero peers on Solana mainnet
+	@echo "⚠  MAINNET LZ CONFIG — proceed with caution"
 	@read -p "Are you sure? (yes/no) " CONFIRM; \
 	[ "$$CONFIRM" = "yes" ] || (echo "Aborted."; exit 1)
-	npx ts-node app/scripts/wire.ts --cluster mainnet
+	npx ts-node app/scripts/ConfigureLz.ts --cluster mainnet
+
+# ── OFT Store bytes32 ─────────────────────────────────────────────────────────
+
+to-b32: ## Convert any Solana address to bytes32 hex. Usage: make to-bytes32 ADDR=<base58>
+	@[ -n "$(ADDR)" ] || (echo "Error: ADDR is not set. Usage: make to-bytes32 ADDR=<base58>"; exit 1)
+	npx ts-node app/scripts/toBytes32.ts $(ADDR)
+
+oft-store-bytes32-devnet: ## Print OFT Store address as bytes32 (use as REMOTE_PEER_BYTES32 on EVM side)
+	@node -e " \
+	  const { PublicKey } = require('@solana/web3.js'); \
+	  const dep = require('./deployments/solana-devnet.json'); \
+	  console.log('OFT Store (devnet) bytes32:'); \
+	  console.log('0x' + Buffer.from(new PublicKey(dep.oftStore).toBytes()).toString('hex')); \
+	"
+
+oft-store-bytes32-mainnet: ## Print OFT Store address as bytes32 (use as REMOTE_PEER_BYTES32 on EVM side)
+	@node -e " \
+	  const { PublicKey } = require('@solana/web3.js'); \
+	  const dep = require('./deployments/solana-mainnet.json'); \
+	  console.log('OFT Store (mainnet) bytes32:'); \
+	  console.log('0x' + Buffer.from(new PublicKey(dep.oftStore).toBytes()).toString('hex')); \
+	"
+
+
+# ── Admin one-time setup ─────────────────────────────────────────────────────
+# Run once after deployment to allow the developer key to operate LZ config
+# without ever needing the admin key again.
+# Usage: DELEGATE_ADDRESS=<developer-pubkey> make set-delegate-devnet
+
+set-delegate-devnet: ## (Admin only) Set LZ endpoint delegate → DELEGATE_ADDRESS on devnet
+	@[ -n "$$DELEGATE_ADDRESS" ] || (echo "Error: DELEGATE_ADDRESS is not set."; exit 1)
+	@echo "=== SetDelegate → devnet ==="
+	npx ts-node app/scripts/SetDelegate.ts --cluster devnet
+
+set-delegate-mainnet: ## (Admin only) Set LZ endpoint delegate → DELEGATE_ADDRESS on mainnet
+	@[ -n "$$DELEGATE_ADDRESS" ] || (echo "Error: DELEGATE_ADDRESS is not set."; exit 1)
+	@echo "⚠  MAINNET DELEGATE — proceed with caution"
+	@read -p "Are you sure? (yes/no) " CONFIRM; \
+	[ "$$CONFIRM" = "yes" ] || (echo "Aborted."; exit 1)
+	npx ts-node app/scripts/SetDelegate.ts --cluster mainnet
 
 # ── Maintenance ───────────────────────────────────────────────────────────────
 

@@ -135,6 +135,7 @@ impl LzReceive<'_> {
         //           using the PDA seeds.
         // Case 2 — direct authority: oft_store IS the mint authority; no extra
         //           signers are needed beyond the PDA seeds.
+        let signer_seeds = [seeds];
         let cpi_ctx = {
             let base = CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
@@ -143,7 +144,7 @@ impl LzReceive<'_> {
                     to: ctx.accounts.token_dest.to_account_info(),
                     authority: mint_authority.to_account_info(),
                 },
-                &[seeds],
+                &signer_seeds,
             );
             if mint_authority.key() != ctx.accounts.oft_store.key() {
                 base.with_remaining_accounts(vec![ctx.accounts.oft_store.to_account_info()])

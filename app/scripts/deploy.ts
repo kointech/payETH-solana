@@ -36,7 +36,7 @@ import {
 } from "@solana/spl-token";
 import * as fs from "fs";
 import * as path from "path";
-import { EndpointProgram } from "@layerzerolabs/lz-solana-sdk-v2";
+import { EndpointProgram, EndpointPDADeriver, EventPDADeriver } from "@layerzerolabs/lz-solana-sdk-v2";
 import {
   PAYE_DECIMALS,
   PAYE_SHARED_DECIMALS,
@@ -193,7 +193,48 @@ async function main() {
 
   console.log(`  init_oft tx : ${tx}`);
 
-  // ── Save deployment record ─────────────────────────────────────────────────
+  // ── Step 3 (optional): Re-point LZ endpoint delegate to a separate developer key ──
+  // init_oft sets delegate = deployer (payer) on the endpoint automatically.
+  // If DEVELOPER_ADDRESS is set AND differs from the deployer, update the delegate now
+  // while the admin/treasury key is available.  This requires treasury to be a real keypair.
+  // If treasury is only an address (no private key), skip this step — ConfigureLz must then
+  // be run with the deployer key (same key used here) since that is the delegate.
+  const developerStr = process.env.DEVELOPER_ADDRESS;
+  const developer = developerStr ? new PublicKey(developerStr) : deployer.publicKey;
+
+  if (developerStr && !developer.equals(deployer.publicKey)) {
+    let treasuryKp: Keypair | null = null;
+    try { treasuryKp = loadTreasuryKeypair(); } catch { /* no treasury keypair available */ }
+
+    if (treasuryKp) {
+      console.log(`\n[3/3] Setting LZ endpoint delegate → ${developer.toBase58()}…`);
+      const endpointPubkey = endpointProgram;
+      const [oappRegistry]   = new EndpointPDADeriver(endpointPubkey).oappRegistry(oftStore);
+      const [eventAuthority] = new EventPDADeriver(endpointPubkey).eventAuthority();
+
+      const delegateTx = await program.methods
+        .setOftConfig({ delegate: [developer] })
+        .accounts({ admin: treasuryKp.publicKey, oftStore } as any)
+        .signers([treasuryKp])
+        .remainingAccounts([
+          { pubkey: endpointPubkey, isSigner: false, isWritable: false },
+          { pubkey: oftStore,       isSigner: false, isWritable: false },
+          { pubkey: oappRegistry,   isSigner: false, isWritable: true  },
+          { pubkey: eventAuthority, isSigner: false, isWritable: false },
+          { pubkey: endpointPubkey, isSigner: false, isWritable: false },
+        ])
+        .rpc({ commitment: "confirmed" });
+      console.log(`  ✓ Delegate set — tx: ${delegateTx}`);
+    } else {
+      console.log(`\n[3/3] SKIPPED: DEVELOPER_ADDRESS set but treasury keypair unavailable.`);
+      console.log(`  Delegate remains = deployer (${deployer.publicKey.toBase58()}).`);
+      console.log(`  → Run ConfigureLz with the deployer key, OR ask the owner to run:`);
+      console.log(`    DELEGATE_ADDRESS=${developer.toBase58()} make set-delegate-${cluster}`);
+    }
+  } else {
+    console.log(`\n[3/3] Delegate = deployer (${deployer.publicKey.toBase58()}) — no change needed.`);
+  }
+
   const record: DeploymentRecord = {
     cluster,
     programId: programId.toBase58(),
@@ -201,24 +242,16 @@ async function main() {
     tokenEscrow: escrowKeypair.publicKey.toBase58(),
     oftStore: oftStore.toBase58(),
     admin: treasury.publicKey.toBase58(),
-    developer: deployer.publicKey.toBase58(),
+    developer: developer.toBase58(),
     deployedAt: new Date().toISOString(),
   };
   saveDeployment(cluster, record);
 
   console.log("\n✓ Deployment complete.");
-  console.log(
-    "\nNext steps:"
-  );
-  console.log(
-    "  1. Transfer / renounce freeze authority on the mint if required."
-  );
-  console.log(
-    "  2. Run `make wire-devnet` (or wire-mainnet) to register all peers."
-  );
-  console.log(
-    "  3. Run `make test` to verify the deployment."
-  );
+  console.log("\nNext steps:");
+  console.log("  1. Transfer / renounce freeze authority on the mint if required.");
+  console.log("  2. Run `make configure-lz-devnet` (or configure-lz-mainnet) to register all peers.");
+  console.log("  3. Run `make test` to verify the deployment.");
 }
 
 main().catch((err) => {
