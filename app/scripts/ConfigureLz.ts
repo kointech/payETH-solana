@@ -78,33 +78,10 @@ const remoteEidArg =
   process.env.REMOTE_EID;
 const targetRemoteEid = remoteEidArg ? parseInt(remoteEidArg, 10) : undefined;
 
-// ─── Peer configuration ───────────────────────────────────────────────────────
-
-interface PeerEntry {
-  remoteEid: number;
-  label: string;
-}
-
 interface UlnConfirmations {
   send: number;
   receive: number;
 }
-
-// ─── Known peers ──────────────────────────────────────────────────────────────
-// Used for label lookup only.  Peer address comes from REMOTE_PAYE_ADDRESS or
-// REMOTE_PEER_BYTES32 (mirrors ConfigureLz.s.sol — one chain pair at a time).
-
-const DEVNET_PEERS: PeerEntry[] = [
-  { remoteEid: EID_ETHEREUM_SEPOLIA, label: "Ethereum Sepolia" },
-  { remoteEid: EID_LINEA_SEPOLIA,    label: "Linea Sepolia"    },
-  { remoteEid: EID_BASE_SEPOLIA,     label: "Base Sepolia"     },
-];
-
-const MAINNET_PEERS: PeerEntry[] = [
-  { remoteEid: EID_ETHEREUM_MAINNET, label: "Ethereum mainnet" },
-  { remoteEid: EID_LINEA_MAINNET,    label: "Linea mainnet"    },
-  { remoteEid: EID_BASE_MAINNET,     label: "Base mainnet"     },
-];
 
 // ─── Solana program addresses ────────────────────────────────────────────────
 // Source: https://docs.layerzero.network/v2/deployments/deployed-contracts
@@ -201,9 +178,9 @@ const MAINNET_EID_CONFIG: Record<number, SolanaEidConfig> = {
 };
 
 // ─── Peer address resolution ──────────────────────────────────────────────────
-// Mirrors ConfigureLz.s.sol: prefer REMOTE_PEER_BYTES32 for non-EVM chains,
-// fall back to REMOTE_PAYE_ADDRESS (EVM address padded to bytes32).
-function resolvePeerBytes32(entry: PeerEntry): Uint8Array {
+// Prefer REMOTE_PEER_BYTES32 (non-EVM or explicit override), otherwise pad
+// REMOTE_PAYE_ADDRESS (EVM 20-byte address) to bytes32.
+function resolvePeerBytes32(): Uint8Array {
   const raw = process.env.REMOTE_PEER_BYTES32;
   if (raw && raw.trim().length > 0) {
     const hex = raw.replace(/^0x/, "");
@@ -211,8 +188,8 @@ function resolvePeerBytes32(entry: PeerEntry): Uint8Array {
     return Uint8Array.from(Buffer.from(hex, "hex"));
   }
   const addr = process.env.REMOTE_PAYE_ADDRESS;
-  if (!addr) throw new Error(`Set REMOTE_PAYE_ADDRESS (or REMOTE_PEER_BYTES32) for ${entry.label}`);
-  if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) throw new Error(`${entry.label} peer address invalid: ${addr}`);
+  if (!addr) throw new Error("Set REMOTE_PAYE_ADDRESS (or REMOTE_PEER_BYTES32) for the remote peer.");
+  if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) throw new Error(`REMOTE_PAYE_ADDRESS invalid: ${addr}`);
   const bytes = new Uint8Array(32);
   bytes.set(Buffer.from(addr.replace(/^0x/, ""), "hex"), 12);
   return bytes;
@@ -221,15 +198,13 @@ function resolvePeerBytes32(entry: PeerEntry): Uint8Array {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const allPeers = cluster === "mainnet" ? MAINNET_PEERS : DEVNET_PEERS;
-
-  // --remote-eid is required (mirrors ConfigureLz.s.sol: one chain pair per run).
   if (targetRemoteEid === undefined) {
     throw new Error("--remote-eid <EID> is required. Pass it as a CLI flag or set REMOTE_EID env var.");
   }
-  const found = allPeers.find((p) => p.remoteEid === targetRemoteEid);
-  if (!found) throw new Error(`--remote-eid ${targetRemoteEid} not in known peer list for ${cluster}.`);
-  const peers = [found];
+
+  const eidConfigMap = cluster === "mainnet" ? MAINNET_EID_CONFIG : DEVNET_EID_CONFIG;
+  const eidConfig = eidConfigMap[targetRemoteEid];
+  if (!eidConfig) throw new Error(`--remote-eid ${targetRemoteEid} not found in EID config for ${cluster}. Add it to DEVNET_EID_CONFIG or MAINNET_EID_CONFIG.`);
 
   console.log(`\n=== PAYE OFT Wire — Solana side ===`);
   console.log(`Cluster    : ${cluster}`);
@@ -244,16 +219,12 @@ async function main() {
   console.log(`Program   : ${programId.toBase58()}\n`);
 
   if (isDryRun) {
-    for (const peer of peers) {
-      const peerBytes32 = resolvePeerBytes32(peer);
-      const [peerPda] = derivePeer(programId, oftStore, peer.remoteEid);
-      const eidCfg = (cluster === "mainnet" ? MAINNET_EID_CONFIG : DEVNET_EID_CONFIG)[peer.remoteEid];
-      const confs = eidCfg?.confirmations ?? { send: 15, receive: 15 };
-      console.log(`[DRY RUN] Would wire: ${peer.label} (EID ${peer.remoteEid})`);
-      console.log(`          Peer bytes32 : 0x${Buffer.from(peerBytes32).toString("hex")}`);
-      console.log(`          Peer PDA     : ${peerPda.toBase58()}`);
-      console.log(`          Send confs   : ${confs.send}  Receive confs: ${confs.receive}`);
-    }
+    const peerBytes32 = resolvePeerBytes32();
+    const [peerPda] = derivePeer(programId, oftStore, targetRemoteEid);
+    console.log(`[DRY RUN] Would wire EID ${targetRemoteEid}`);
+    console.log(`          Peer bytes32 : 0x${Buffer.from(peerBytes32).toString("hex")}`);
+    console.log(`          Peer PDA     : ${peerPda.toBase58()}`);
+    console.log(`          Send confs   : ${eidConfig.confirmations.send}  Receive confs: ${eidConfig.confirmations.receive}`);
     return;
   }
 
@@ -356,126 +327,148 @@ async function main() {
   }
 
   // ── [3/4] Wire peer ───────────────────────────────────────────────────────
-  for (const peer of peers) {
-    const peerBytes32 = resolvePeerBytes32(peer);
-    const [peerPda] = derivePeer(programId, oftStore, peer.remoteEid);
+  const peerBytes32 = resolvePeerBytes32();
+  const [peerPda] = derivePeer(programId, oftStore, targetRemoteEid);
 
-    console.log(`\n[3/4] Wiring peer: ${peer.label} (EID ${peer.remoteEid})…`);
-    console.log(`  Peer bytes32 : 0x${Buffer.from(peerBytes32).toString("hex")}`);
-    console.log(`  Peer PDA     : ${peerPda.toBase58()}`);
+  console.log(`\n[3/4] Wiring peer EID ${targetRemoteEid}…`);
+  console.log(`  Peer bytes32 : 0x${Buffer.from(peerBytes32).toString("hex")}`);
+  console.log(`  Peer PDA     : ${peerPda.toBase58()}`);
 
-    const tx = await program.methods
-      .setPeerConfig({
-        remoteEid: peer.remoteEid,
-        config: { peerAddress: [Array.from(peerBytes32)] },
-      })
-      .accounts({
-        authority: caller.publicKey,
-        peer: peerPda,
-        oftStore,
-        systemProgram: SystemProgram.programId,
-      } as any)
-      .rpc({ commitment: "confirmed" });
+  const wireTx = await program.methods
+    .setPeerConfig({
+      remoteEid: targetRemoteEid,
+      config: { peerAddress: [Array.from(peerBytes32)] },
+    })
+    .accounts({
+      authority: caller.publicKey,
+      peer: peerPda,
+      oftStore,
+      systemProgram: SystemProgram.programId,
+    } as any)
+    .rpc({ commitment: "confirmed" });
 
-    console.log(`  ✓ tx : ${tx}`);
-  }
-
-  console.log(`\n✓ Peer(s) wired.`);
-  console.log(`\nRemember: also run ConfigureLz.s.sol on each EVM chain with:`);
+  console.log(`  ✓ tx : ${wireTx}`);
+  console.log(`\nRemember: also run ConfigureLz.s.sol on the EVM chain with:`);
   console.log(`  REMOTE_EID=40168 (devnet) or 30168 (mainnet)`);
   console.log(`  REMOTE_PEER_BYTES32=0x${Buffer.from(new PublicKey(deployment.oftStore).toBytes()).toString("hex")}`);
 
-  // ── [4/4] Set Solana library + DVN config for each remote EID ────────────
-  // Per EID the required call sequence is:
+  // ── [4/4] Set Solana library + DVN config ────────────────────────────────
+  // Required call sequence:
   //   tx1: initSendLibrary + initReceiveLibrary  — create library config PDAs
   //   tx2: initOAppConfig                        — create send_config + receive_config PDAs in ULN
   //   tx3: setOappConfig x3                      — set executor, send DVNs, receive DVNs
   console.log("\n[4/4] Initialising Solana library + ULN config…");
+  console.log(`  Configuring EID ${targetRemoteEid}…`);
 
   const endpointSdk = new EndpointProgram.Endpoint(endpointPubkey);
   const ulnSdk      = new UlnProgram.Uln(new PublicKey(ULN_PROGRAM));
 
-  // Use the peer list already filtered by --remote-eid (or all if not given).
-  const remoteEids = peers.map((p) => p.remoteEid);
+  // Use DVN program IDs directly as the DVN addresses in the ULN config.
+  // ULN requires DVN arrays to be sorted in ascending byte order.
+  const sortByBytes = (a: PublicKey, b: PublicKey) => {
+    const ab = a.toBytes();
+    const bb = b.toBytes();
+    for (let i = 0; i < 32; i++) {
+      if (ab[i] !== bb[i]) return ab[i] - bb[i];
+    }
+    return 0;
+  };
+  const requiredDvnPdas = eidConfig.requiredDvnPrograms
+    .map((progId) => new PublicKey(progId))
+    .sort(sortByBytes);
+  const optionalDvnPdas = eidConfig.optionalDvnPrograms
+    .map((progId) => new PublicKey(progId))
+    .sort(sortByBytes);
 
-  const eidConfigMap = cluster === "mainnet" ? MAINNET_EID_CONFIG : DEVNET_EID_CONFIG;
+  console.log(`    Required DVNs  : ${requiredDvnPdas.map((p) => p.toBase58()).join(", ")}`);
+  if (optionalDvnPdas.length > 0)
+    console.log(`    Optional DVNs  : ${optionalDvnPdas.map((p) => p.toBase58()).join(", ")} (threshold ${eidConfig.optionalDvnThreshold})`);
 
-  for (const remoteEid of remoteEids) {
-    console.log(`  Configuring EID ${remoteEid}…`);
-    try {
-      const eidConfig = eidConfigMap[remoteEid];
-      if (!eidConfig) throw new Error(`No Solana EID config found for EID ${remoteEid}. Add it to DEVNET_EID_CONFIG or MAINNET_EID_CONFIG.`);
+  const sendUlnConfig = {
+    confirmations:        eidConfig.confirmations.send,
+    requiredDvnCount:     requiredDvnPdas.length,
+    optionalDvnCount:     optionalDvnPdas.length,
+    optionalDvnThreshold: eidConfig.optionalDvnThreshold,
+    requiredDvns:         requiredDvnPdas,
+    optionalDvns:         optionalDvnPdas,
+  };
 
-      // Derive DVN config PDAs from each DVN's Solana program ID.
-      const requiredDvnPdas = eidConfig.requiredDvnPrograms.map(
-        (progId) => new DVNDeriver(new PublicKey(progId)).config()[0]
-      );
-      const optionalDvnPdas = eidConfig.optionalDvnPrograms.map(
-        (progId) => new DVNDeriver(new PublicKey(progId)).config()[0]
-      );
+  const receiveUlnConfig = {
+    confirmations:        eidConfig.confirmations.receive,
+    requiredDvnCount:     requiredDvnPdas.length,
+    optionalDvnCount:     optionalDvnPdas.length,
+    optionalDvnThreshold: eidConfig.optionalDvnThreshold,
+    requiredDvns:         requiredDvnPdas,
+    optionalDvns:         optionalDvnPdas,
+  };
 
-      console.log(`    Required DVNs  : ${requiredDvnPdas.map((p) => p.toBase58()).join(", ")}`);
-      if (optionalDvnPdas.length > 0)
-        console.log(`    Optional DVNs  : ${optionalDvnPdas.map((p) => p.toBase58()).join(", ")} (threshold ${eidConfig.optionalDvnThreshold})`);
-
-      const sendUlnConfig = {
-        confirmations:        eidConfig.confirmations.send,
-        requiredDvnCount:     requiredDvnPdas.length,
-        optionalDvnCount:     optionalDvnPdas.length,
-        optionalDvnThreshold: eidConfig.optionalDvnThreshold,
-        requiredDvns:         requiredDvnPdas,
-        optionalDvns:         optionalDvnPdas,
-      };
-
-      const receiveUlnConfig = {
-        confirmations:        eidConfig.confirmations.receive,
-        requiredDvnCount:     requiredDvnPdas.length,
-        optionalDvnCount:     optionalDvnPdas.length,
-        optionalDvnThreshold: eidConfig.optionalDvnThreshold,
-        requiredDvns:         requiredDvnPdas,
-        optionalDvns:         optionalDvnPdas,
-      };
-
-      // tx1: init send + receive library config PDAs
-      const initSendIx = endpointSdk.initSendLibrary(caller.publicKey, oftStore, remoteEid);
-      const initRxIx   = endpointSdk.initReceiveLibrary(caller.publicKey, oftStore, remoteEid);
-      await sendAndConfirmTransaction(
-        connection, new Transaction().add(initSendIx).add(initRxIx), [caller], { commitment: "confirmed" }
-      );
-
-      // tx2: init OApp ULN config PDAs (creates send_config + receive_config in ULN)
-      const initConfigIx = endpointSdk.initOAppConfig(caller.publicKey, ulnSdk, caller.publicKey, oftStore, remoteEid);
-      await sendAndConfirmTransaction(
-        connection, new Transaction().add(initConfigIx), [caller], { commitment: "confirmed" }
-      );
-
-      // tx3: set executor, send ULN, receive ULN configs
-      const ulnPubkey      = new PublicKey(ULN_PROGRAM);
-      const executorPubkey  = new PublicKey(LZ_EXECUTOR_PROGRAM);
-      const executorIx = await endpointSdk.setOappConfig(
-        connection, caller.publicKey, oftStore, ulnPubkey, remoteEid,
-        { configType: SetConfigType.EXECUTOR, value: { maxMessageSize: 10000, executor: executorPubkey } }
-      );
-      const sendUlnIx = await endpointSdk.setOappConfig(
-        connection, caller.publicKey, oftStore, ulnPubkey, remoteEid,
-        { configType: SetConfigType.SEND_ULN, value: sendUlnConfig }
-      );
-      const rxUlnIx = await endpointSdk.setOappConfig(
-        connection, caller.publicKey, oftStore, ulnPubkey, remoteEid,
-        { configType: SetConfigType.RECEIVE_ULN, value: receiveUlnConfig }
-      );
-      const sig = await sendAndConfirmTransaction(
-        connection, new Transaction().add(executorIx).add(sendUlnIx).add(rxUlnIx), [caller], { commitment: "confirmed" }
-      );
-      console.log(`  ✓ EID ${remoteEid} fully configured — tx: ${sig}`);
-    } catch (e: any) {
-      if (e?.message?.includes("already in use") || e?.message?.includes("AlreadyInUse")) {
-        console.log(`  ℹ EID ${remoteEid} already initialised — skipping.`);
-      } else {
-        throw e;
-      }
+  // tx1: init send + receive library config PDAs — idempotent.
+  try {
+    const initSendIx = endpointSdk.initSendLibrary(caller.publicKey, oftStore, targetRemoteEid);
+    const initRxIx   = endpointSdk.initReceiveLibrary(caller.publicKey, oftStore, targetRemoteEid);
+    await sendAndConfirmTransaction(
+      connection, new Transaction().add(initSendIx).add(initRxIx), [caller], { commitment: "confirmed" }
+    );
+    console.log(`    tx1: send/receive library PDAs created.`);
+  } catch (e: any) {
+    if (e?.message?.includes("already in use") || e?.message?.includes("AlreadyInUse")) {
+      console.log(`    tx1: library PDAs already exist — skipping.`);
+    } else {
+      throw e;
     }
   }
+
+  // tx1b: point send + receive library to ULN — idempotent (SameValue = already set).
+  try {
+    const ulnPubkeyForLib = new PublicKey(ULN_PROGRAM);
+    const setSendLibIx    = endpointSdk.setSendLibrary(caller.publicKey, oftStore, ulnPubkeyForLib, targetRemoteEid);
+    const setRxLibIx      = endpointSdk.setReceiveLibrary(caller.publicKey, oftStore, ulnPubkeyForLib, targetRemoteEid);
+    await sendAndConfirmTransaction(
+      connection, new Transaction().add(setSendLibIx).add(setRxLibIx), [caller], { commitment: "confirmed" }
+    );
+    console.log(`    tx1b: send/receive library set to ULN.`);
+  } catch (e: any) {
+    if (e?.message?.includes("SameValue") || e?.message?.includes("already in use") || e?.message?.includes("AlreadyInUse")) {
+      console.log(`    tx1b: send/receive library already set to ULN — skipping.`);
+    } else {
+      throw e;
+    }
+  }
+
+  // tx2: init OApp ULN config PDAs — idempotent.
+  try {
+    const initConfigIx = endpointSdk.initOAppConfig(caller.publicKey, ulnSdk, caller.publicKey, oftStore, targetRemoteEid);
+    await sendAndConfirmTransaction(
+      connection, new Transaction().add(initConfigIx), [caller], { commitment: "confirmed" }
+    );
+    console.log(`    tx2: OApp ULN config PDAs created.`);
+  } catch (e: any) {
+    if (e?.message?.includes("already in use") || e?.message?.includes("AlreadyInUse")) {
+      console.log(`    tx2: OApp ULN config PDAs already exist — skipping.`);
+    } else {
+      throw e;
+    }
+  }
+
+  // tx3: set executor, send ULN, receive ULN configs — always run (idempotent overwrite).
+  const ulnPubkey     = new PublicKey(ULN_PROGRAM);
+  const executorPubkey = new PublicKey(LZ_EXECUTOR_PROGRAM);
+  const executorIx = await endpointSdk.setOappConfig(
+    connection, caller.publicKey, oftStore, ulnPubkey, targetRemoteEid,
+    { configType: SetConfigType.EXECUTOR, value: { maxMessageSize: 10000, executor: executorPubkey } }
+  );
+  const sendUlnIx = await endpointSdk.setOappConfig(
+    connection, caller.publicKey, oftStore, ulnPubkey, targetRemoteEid,
+    { configType: SetConfigType.SEND_ULN, value: sendUlnConfig }
+  );
+  const rxUlnIx = await endpointSdk.setOappConfig(
+    connection, caller.publicKey, oftStore, ulnPubkey, targetRemoteEid,
+    { configType: SetConfigType.RECEIVE_ULN, value: receiveUlnConfig }
+  );
+  const sig = await sendAndConfirmTransaction(
+    connection, new Transaction().add(executorIx).add(sendUlnIx).add(rxUlnIx), [caller], { commitment: "confirmed" }
+  );
+  console.log(`  ✓ EID ${targetRemoteEid} fully configured — tx: ${sig}`);
 
   console.log("\n✓ Solana LZ config complete.");
 }
